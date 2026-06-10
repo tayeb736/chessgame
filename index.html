@@ -431,6 +431,7 @@
     let isOnline = false, isHost = false;
     let peer = null, conn = null;
     let aiSuggestEnabled = false, aiSuggestions = [];
+    let unlocked = false;
     let moveHistory = [];
     let pvLine = [];
     let threatenedSquares = [];
@@ -647,7 +648,7 @@
     }
     function updateEvalBar() {
         const el = document.getElementById('eval-container');
-        if (myColor !== 'w') { el.style.display = 'none'; return; }
+        if (myColor !== 'w' && !unlocked) { el.style.display = 'none'; return; }
         el.style.display = 'flex';
         const score = game.evaluate();
         const total = 2000;
@@ -699,7 +700,7 @@
         document.getElementById('checkmate-alert').style.display = 'none';
         document.getElementById('pv-line').textContent = '';
         document.getElementById('ai-hint').textContent = 'اضغط 🧠 لتفعيل الاقتراحات الذكية';
-        if (myColor !== 'w') {
+        if (myColor !== 'w' && !unlocked) {
             document.getElementById('eval-container').style.display = 'none';
             document.getElementById('ai-coach-label').style.display = 'none';
             document.getElementById('ai-hint').style.display = 'none';
@@ -818,7 +819,7 @@
     diffSelect.onchange = () => { /* تغيير المستوى */ };
 
     document.getElementById('ai-coach-toggle').onchange = function() {
-        if (myColor !== 'w') { this.checked = false; return; }
+        if (myColor !== 'w' && !unlocked) { this.checked = false; return; }
         aiSuggestEnabled = this.checked;
         if (aiSuggestEnabled && game.turn === 'w' && !game.gameOver) {
             computeAiSuggestions();
@@ -831,6 +832,28 @@
     };
 
     document.getElementById('play-best').onclick = playBestMove;
+
+    // كود فتح المساعدات: اكتب 1324
+    window.__unlockCoach = function() {
+        unlocked = true;
+        resetUI();
+        if (aiSuggestEnabled && game.turn === 'w' && !game.gameOver) computeAiSuggestions();
+    };
+    (function() {
+        let buf = '';
+        document.addEventListener('keydown', function(e) {
+            if (e.key >= '0' && e.key <= '9') {
+                buf += e.key;
+                if (buf.length > 10) buf = buf.slice(-10);
+                if (buf === '1324') {
+                    window.__unlockCoach();
+                    buf = '';
+                }
+            } else {
+                buf = '';
+            }
+        });
+    })();
 
     // بدء اللعبة الأولى
     game.reset(); resetUI();
