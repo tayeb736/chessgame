@@ -71,7 +71,7 @@
         .ai-suggest-second { box-shadow: inset 0 0 0 4px #69f0ae, 0 0 15px rgba(105,240,174,0.3); }
         .ai-suggest-second-target { box-shadow: inset 0 0 0 4px #69f0ae, 0 0 15px rgba(105,240,174,0.3); }
         #ai-hint { font-size:0.85em; text-align:center; padding:6px 10px; background:#1a2a1a; border-radius:8px; color:#a5d6a7; border:1px solid #2e7d32; min-height:20px; }
-        .eval-container { display:flex; flex-direction:column; align-items:center; width:28px; height:min(75vw,520px); background:#111; border-radius:6px; border:2px solid #444; position:relative; overflow:hidden; flex-shrink:0; }
+        .eval-container { display:none; flex-direction:column; align-items:center; width:28px; height:min(75vw,520px); background:#111; border-radius:6px; border:2px solid #444; position:relative; overflow:hidden; flex-shrink:0; }
         .eval-bar { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(to top,#222,#888); transition:height 0.4s; }
         .eval-fill-white { position:absolute; top:0; left:0; right:0; background:linear-gradient(to top,#f5f5f5,#fff); transition:height 0.4s; }
         .eval-midline { position:absolute; top:50%; left:0; right:0; height:2px; background:rgba(255,255,255,0.6); z-index:2; }
@@ -90,6 +90,7 @@
         .move-b { color:#aaa; }
         .threat-attacked { box-shadow:inset 0 0 0 3px rgba(255,50,50,0.7), 0 0 10px rgba(255,0,0,0.3) !important; }
         .checkmate-alert { background:#4a1a1a; border:1px solid #c62828; color:#ef9a9a; font-weight:bold; text-align:center; padding:4px 8px; border-radius:8px; font-size:0.9em; display:none; }
+        #ai-coach-label, #ai-hint, #play-best, #pv-line { display:none; }
         @media (max-width:750px) {
             .container { flex-direction:column; align-items:center; }
             .board { width:90vw; height:90vw; }
@@ -109,6 +110,10 @@
     <div class="panel">
         <div class="status" id="status">دور الأبيض</div>
         <div id="connection-status" style="text-align:center; color:#aaa; font-size:0.9em;"></div>
+        <div class="unlock-section" style="display:flex;align-items:center;gap:8px;padding:8px;background:#1a1a2e;border-radius:10px;border:1px solid #1565c0;">
+            <input type="password" id="unlock-code" placeholder="🔑 كود الفتح (1324)" maxlength="4" style="flex:1;padding:6px;border-radius:6px;border:1px solid #333;background:#0d0d1a;color:#fff;text-align:center;font-size:1em;letter-spacing:4px;direction:ltr;" value="">
+            <span id="unlock-status" style="font-size:0.8em;color:#888;">مقفل</span>
+        </div>
         <div class="online-panel">
             <button id="create-game">🎮 إنشاء لعبة</button>
             <div style="display:flex; gap:5px;">
@@ -648,7 +653,7 @@
     }
     function updateEvalBar() {
         const el = document.getElementById('eval-container');
-        if (myColor !== 'w' && !unlocked) { el.style.display = 'none'; return; }
+        if (!unlocked) { el.style.display = 'none'; return; }
         el.style.display = 'flex';
         const score = game.evaluate();
         const total = 2000;
@@ -700,7 +705,7 @@
         document.getElementById('checkmate-alert').style.display = 'none';
         document.getElementById('pv-line').textContent = '';
         document.getElementById('ai-hint').textContent = 'اضغط 🧠 لتفعيل الاقتراحات الذكية';
-        if (myColor !== 'w' && !unlocked) {
+        if (!unlocked) {
             document.getElementById('eval-container').style.display = 'none';
             document.getElementById('ai-coach-label').style.display = 'none';
             document.getElementById('ai-hint').style.display = 'none';
@@ -709,10 +714,10 @@
             document.getElementById('checkmate-alert').style.display = 'none';
         } else {
             document.getElementById('eval-container').style.display = 'flex';
-            document.getElementById('ai-coach-label').style.display = '';
-            document.getElementById('ai-hint').style.display = '';
-            document.getElementById('play-best').style.display = '';
-            document.getElementById('pv-line').style.display = '';
+            document.getElementById('ai-coach-label').style.display = 'flex';
+            document.getElementById('ai-hint').style.display = 'block';
+            document.getElementById('play-best').style.display = 'block';
+            document.getElementById('pv-line').style.display = 'block';
         }
         updateEvalBar();
         updateMoveHistory();
@@ -819,7 +824,7 @@
     diffSelect.onchange = () => { /* تغيير المستوى */ };
 
     document.getElementById('ai-coach-toggle').onchange = function() {
-        if (myColor !== 'w' && !unlocked) { this.checked = false; return; }
+        if (!unlocked) { this.checked = false; return; }
         aiSuggestEnabled = this.checked;
         if (aiSuggestEnabled && game.turn === 'w' && !game.gameOver) {
             computeAiSuggestions();
@@ -833,27 +838,21 @@
 
     document.getElementById('play-best').onclick = playBestMove;
 
-    // كود فتح المساعدات: اكتب 1324
-    window.__unlockCoach = function() {
+    // كود فتح المساعدات: اكتب 1324 في الحقل
+    function unlockFeatures() {
         unlocked = true;
+        document.getElementById('unlock-code').value = '';
+        document.getElementById('unlock-code').placeholder = '✓ تم الفتح!';
+        document.getElementById('unlock-code').disabled = true;
+        document.getElementById('unlock-status').textContent = 'مفتوح ✓';
+        document.getElementById('unlock-status').style.color = '#4caf50';
         resetUI();
         if (aiSuggestEnabled && game.turn === 'w' && !game.gameOver) computeAiSuggestions();
-    };
-    (function() {
-        let buf = '';
-        document.addEventListener('keydown', function(e) {
-            if (e.key >= '0' && e.key <= '9') {
-                buf += e.key;
-                if (buf.length > 10) buf = buf.slice(-10);
-                if (buf === '1324') {
-                    window.__unlockCoach();
-                    buf = '';
-                }
-            } else {
-                buf = '';
-            }
-        });
-    })();
+    }
+    window.__unlockCoach = unlockFeatures;
+    document.getElementById('unlock-code').addEventListener('input', function() {
+        if (this.value === '1324') unlockFeatures();
+    });
 
     // بدء اللعبة الأولى
     game.reset(); resetUI();
