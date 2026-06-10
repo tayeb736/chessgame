@@ -462,8 +462,8 @@
         resetUI();
     }
 
-    function connectToPeer(id) {
-        peer = new Peer(id, { debug:0 });
+    function connectToPeer(hostId) {
+        peer = new Peer(undefined, { debug:1, config: { iceServers: [{ urls:'stun:stun.l.google.com:19302' }, { urls:'stun:stun1.l.google.com:19302' }] } });
         peer.on('open', (pid) => {
             if (isHost) {
                 gameIdInput.value = pid;
@@ -474,12 +474,12 @@
                     conn.on('data', handleNetworkMessage);
                 });
             } else {
-                conn = peer.connect(id, { reliable:true });
+                conn = peer.connect(hostId, { reliable:true });
                 conn.on('open', ()=> connStatusEl.textContent = 'متصل بالمضيف. أنت الأسود.');
                 conn.on('data', handleNetworkMessage);
             }
         });
-        peer.on('error', (e) => connStatusEl.textContent = 'خطأ في الاتصال');
+        peer.on('error', (e) => { connStatusEl.textContent = 'خطأ: ' + e.type; console.error('PeerJS error:', e); });
     }
 
     function handleNetworkMessage(msg) {
