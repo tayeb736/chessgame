@@ -735,7 +735,7 @@
     }
 
     // updateStatus moved before renderBoard
-    }
+
 
     function onSquareClick(row, col) {
         if (aiThinking || game.gameOver) return;
@@ -1022,7 +1022,7 @@
         if (peer) peer.destroy();
         setupOnline(true);
         connectToPeer();
-        gtag?.('event', 'create_game');
+
     };
 
     joinBtn.onclick = () => {
