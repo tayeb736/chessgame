@@ -66,6 +66,30 @@
             text-align:center; font-weight:bold;
         }
         .hidden { display:none; }
+        .ai-suggest { box-shadow: inset 0 0 0 5px #00e676, 0 0 20px rgba(0,230,118,0.4); }
+        .ai-suggest-target { box-shadow: inset 0 0 0 5px #00e676, 0 0 20px rgba(0,230,118,0.4); }
+        .ai-suggest-second { box-shadow: inset 0 0 0 4px #69f0ae, 0 0 15px rgba(105,240,174,0.3); }
+        .ai-suggest-second-target { box-shadow: inset 0 0 0 4px #69f0ae, 0 0 15px rgba(105,240,174,0.3); }
+        #ai-hint { font-size:0.85em; text-align:center; padding:6px 10px; background:#1a2a1a; border-radius:8px; color:#a5d6a7; border:1px solid #2e7d32; min-height:20px; }
+        .eval-container { display:flex; flex-direction:column; align-items:center; width:28px; height:min(75vw,520px); background:#111; border-radius:6px; border:2px solid #444; position:relative; overflow:hidden; flex-shrink:0; }
+        .eval-bar { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(to top,#222,#888); transition:height 0.4s; }
+        .eval-fill-white { position:absolute; top:0; left:0; right:0; background:linear-gradient(to top,#f5f5f5,#fff); transition:height 0.4s; }
+        .eval-midline { position:absolute; top:50%; left:0; right:0; height:2px; background:rgba(255,255,255,0.6); z-index:2; }
+        .eval-score-text { position:absolute; left:50%; transform:translateX(-50%); font-size:11px; font-weight:bold; color:#fff; text-shadow:0 0 6px #000; z-index:3; pointer-events:none; white-space:nowrap; }
+        .eval-score-text.top { top:6px; }
+        .eval-score-text.bot { bottom:6px; }
+        .play-best { background:linear-gradient(145deg,#2e7d32,#1b5e20); font-size:0.9em; border:1px solid #4caf50; }
+        .play-best:hover { background:linear-gradient(145deg,#388e3c,#2e7d32); }
+        .play-best:disabled { opacity:0.4; cursor:not-allowed; }
+        .pv-line { font-size:0.8em; text-align:center; padding:4px 8px; background:#1a1a2e; border-radius:6px; color:#90caf9; border:1px solid #1565c0; min-height:18px; direction:ltr; }
+        .move-history { font-size:0.75em; background:#0a0f14; border-radius:8px; padding:8px; max-height:120px; overflow-y:auto; border:1px solid #333; direction:ltr; text-align:left; }
+        .move-history::-webkit-scrollbar { width:4px; }
+        .move-history::-webkit-scrollbar-thumb { background:#555; border-radius:2px; }
+        .move-num { color:#888; font-weight:bold; margin-left:4px; }
+        .move-w { color:#fff; }
+        .move-b { color:#aaa; }
+        .threat-attacked { box-shadow:inset 0 0 0 3px rgba(255,50,50,0.7), 0 0 10px rgba(255,0,0,0.3) !important; }
+        .checkmate-alert { background:#4a1a1a; border:1px solid #c62828; color:#ef9a9a; font-weight:bold; text-align:center; padding:4px 8px; border-radius:8px; font-size:0.9em; display:none; }
         @media (max-width:750px) {
             .container { flex-direction:column; align-items:center; }
             .board { width:90vw; height:90vw; }
@@ -74,6 +98,13 @@
 </head>
 <body>
 <div class="container">
+    <div class="eval-container" id="eval-container">
+        <div class="eval-bar" id="eval-bar"></div>
+        <div class="eval-fill-white" id="eval-fill-white"></div>
+        <div class="eval-midline"></div>
+        <span class="eval-score-text top" id="eval-score-top"></span>
+        <span class="eval-score-text bot" id="eval-score-bot"></span>
+    </div>
     <div class="board" id="board"></div>
     <div class="panel">
         <div class="status" id="status">دور الأبيض</div>
@@ -96,6 +127,14 @@
                 <option value="3">صعب</option>
                 <option value="4">خبير</option>
             </select>
+            <label id="ai-coach-label" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#1b3a1b;border-radius:10px;cursor:pointer;font-size:0.85em;border:1px solid #2e7d32;">
+                <input type="checkbox" id="ai-coach-toggle"> 🧠 مدرب ذكي للأبيض
+            </label>
+            <div id="ai-hint">اضغط 🧠 لتفعيل الاقتراحات الذكية</div>
+            <div class="checkmate-alert" id="checkmate-alert">⚡ كش مات!</div>
+            <div class="pv-line" id="pv-line"></div>
+            <button id="play-best" class="play-best" disabled>🏆 العب الأفضل</button>
+            <div class="move-history" id="move-history"></div>
         </div>
     </div>
 </div>
@@ -277,7 +316,7 @@
             if (updateState) { this._updatePositionCount(); this._checkGameEnd(); }
         }
         _checkGameEnd() {
-            if (this.isCheckmate()) { this.gameOver=true; this.result=this.turn==='w'?'black_wins':'white_wins'; }
+            if (this.isCheckmate()) { this.gameOver=true; this.result=this.turn==='w'?'black_wins':'white_wins'; this._checkmateSide = this.turn; }
             else if (this.isStalemate()||this.isDrawByFiftyMove()||this.isDrawByInsufficientMaterial()||this.isDrawByRepetition())
             { this.gameOver=true; this.result='draw'; }
         }
@@ -292,7 +331,7 @@
             return score;
         }
         negaMax(depth, alpha, beta) {
-            if (this.gameOver) return this.result==='white_wins'? (this.turn==='w'?-9999:9999) : this.result==='black_wins'? (this.turn==='w'?9999:-9999) : 0;
+            if (this.gameOver) return this.result==='white_wins'? (this.turn==='w'?9999:-9999) : this.result==='black_wins'? (this.turn==='b'?9999:-9999) : 0;
             if (depth===0) { const e=this.evaluate(); return this.turn==='w'?e:-e; }
             const moves = this.getAllLegalMoves(this.turn);
             if (!moves.length) return this.isCheck()? (this.turn==='w'?-9999:9999):0;
@@ -317,6 +356,59 @@
             }
             return bestMove;
         }
+        getTopMoves(depth, count) {
+            const moves = this.getAllLegalMoves(this.turn);
+            if (!moves.length) return [];
+            const scored = moves.map(move => {
+                const child = this.clone(); child.makeMove(move);
+                return { move, score: -child.negaMax(depth-1, -Infinity, Infinity) };
+            });
+            scored.sort((a,b) => b.score - a.score);
+            return scored.slice(0, count);
+        }
+        getPvLine(depth, length) {
+            const best = this.getBestMove(depth);
+            if (!best) return [];
+            const pv = [best];
+            let child = this.clone(); child.makeMove(best);
+            for (let i = 1; i < length && !child.gameOver; i++) {
+                const response = child.getBestMove(Math.max(1, depth - i));
+                if (!response) break;
+                pv.push(response);
+                child.makeMove(response);
+            }
+            return pv;
+        }
+        getCheckmateMoves(depth) {
+            const moves = this.getAllLegalMoves(this.turn);
+            if (!moves.length) return [];
+            const scored = [];
+            for (const move of moves) {
+                const child = this.clone(); child.makeMove(move);
+                const score = -child.negaMax(depth-1, -Infinity, Infinity);
+                if (score >= 9900) scored.push({ move, score });
+            }
+            return scored;
+        }
+        getAttackedSquares(color) {
+            const squares = [];
+            for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
+                if (this.isSquareAttacked(r, c, color)) squares.push({row:r, col:c});
+            }
+            return squares;
+        }
+        toAlgebraic(fr, fc, tr, tc, promotion, pieceType, wasCapture) {
+            const files = 'abcdefgh';
+            const type = pieceType ? pieceType.toUpperCase() : 'P';
+            const to = files[tc] + (8-tr);
+            if (type === 'P') {
+                const prefix = wasCapture ? files[fc] + 'x' : '';
+                const suffix = promotion ? '=' + promotion.toUpperCase() : '';
+                return prefix + to + suffix;
+            }
+            const sym = {N:'N',B:'B',R:'R',Q:'Q',K:'K'}[type] || '';
+            return sym + (wasCapture ? 'x' : '') + to;
+        }
     }
 
     // ========== التهيئة العامة ==========
@@ -335,9 +427,14 @@
 
     let flipped = false, selectedSquare = null, legalMovesForSelected = [];
     let lastMove = null, aiThinking = false;
-    let myColor = 'w'; // اللون الذي يلعب به هذا العميل
+    let myColor = 'w';
     let isOnline = false, isHost = false;
     let peer = null, conn = null;
+    let aiSuggestEnabled = false, aiSuggestions = [];
+    let moveHistory = [];
+    let pvLine = [];
+    let threatenedSquares = [];
+    const files = 'abcdefgh';
     const pieceSymbols = { K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙', k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟' };
 
     function renderBoard() {
@@ -358,6 +455,18 @@
             }
             if (lastMove && ((displayRow===lastMove.fromRow&&displayCol===lastMove.fromCol)||(displayRow===lastMove.toRow&&displayCol===lastMove.toCol)))
                 sq.classList.add('last-move');
+            if (threatenedSquares.some(t=>t.row===displayRow && t.col===displayCol) && game.board[displayRow][displayCol] && game._pieceColor(game.board[displayRow][displayCol])==='w')
+                sq.classList.add('threat-attacked');
+            if (aiSuggestions.length && aiSuggestEnabled && !game.gameOver && game.turn === 'w') {
+                const s0 = aiSuggestions[0].move;
+                if (displayRow === s0.fromRow && displayCol === s0.fromCol) sq.classList.add('ai-suggest');
+                if (displayRow === s0.toRow && displayCol === s0.toCol) sq.classList.add('ai-suggest-target');
+                if (aiSuggestions.length > 1) {
+                    const s1 = aiSuggestions[1].move;
+                    if (displayRow === s1.fromRow && displayCol === s1.fromCol) sq.classList.add('ai-suggest-second');
+                    if (displayRow === s1.toRow && displayCol === s1.toCol) sq.classList.add('ai-suggest-second-target');
+                }
+            }
             if (piece) {
                 const span = document.createElement('span');
                 span.className = 'piece ' + (piece===piece.toUpperCase()?'white-piece':'black-piece');
@@ -382,7 +491,7 @@
 
     function onSquareClick(row, col) {
         if (aiThinking || game.gameOver) return;
-        if (isOnline && game.turn !== myColor) return; // ليس دورك
+        if (isOnline && game.turn !== myColor) return;
         const piece = game.getPiece(row, col);
         if (selectedSquare) {
             const move = legalMovesForSelected.find(m=>m.toRow===row && m.toCol===col);
@@ -401,6 +510,21 @@
             selectedSquare = null; legalMovesForSelected = [];
         } else {
             if (piece && game._pieceColor(piece)===myColor) selectPiece(row,col);
+            else if (aiSuggestions.length && aiSuggestEnabled && game.turn === 'w') {
+                const clicked = aiSuggestions.find(s => s.move.toRow === row && s.move.toCol === col);
+                if (clicked) {
+                    const move = clicked.move;
+                    if (game.board[move.fromRow][move.fromCol].toUpperCase()==='P' && (move.toRow===0||move.toRow===7)) {
+                        showPromotionDialog(game._pieceColor(game.board[move.fromRow][move.fromCol]), promo => {
+                            move.promotion = promo;
+                            executeMove(move);
+                        });
+                    } else {
+                        executeMove(move);
+                    }
+                    return;
+                }
+            }
         }
         renderBoard();
     }
@@ -408,9 +532,18 @@
     function selectPiece(r,c) { selectedSquare={row:r,col:c}; legalMovesForSelected=game.getLegalMoves(r,c); renderBoard(); }
 
     function executeMove(move) {
+        const pieceType = game.board[move.fromRow][move.fromCol];
+        const wasCapture = !!game.board[move.toRow][move.toCol] || move.enPassant;
         game.makeMove(move);
         lastMove = { fromRow:move.fromRow, fromCol:move.fromCol, toRow:move.toRow, toCol:move.toCol };
         selectedSquare = null; legalMovesForSelected = [];
+        const color = game.turn === 'w' ? 'b' : 'w';
+        const alg = game.toAlgebraic(move.fromRow, move.fromCol, move.toRow, move.toCol, move.promotion, pieceType, wasCapture);
+        moveHistory.push({ alg, color, fromRow:move.fromRow, fromCol:move.fromCol, toRow:move.toRow, toCol:move.toCol });
+        if (!game.gameOver && aiSuggestEnabled && game.turn === 'w') computeAiSuggestions();
+        else if (game.gameOver || game.turn !== 'w' || !aiSuggestEnabled) { aiSuggestions = []; document.getElementById('ai-hint').textContent = aiSuggestEnabled && !game.gameOver ? 'دور الخصم' : ''; document.getElementById('checkmate-alert').style.display = 'none'; }
+        updateEvalBar();
+        updateMoveHistory();
         renderBoard(); updateStatus();
         if (isOnline && conn) conn.send({ type:'move', move });
         if (!game.gameOver && !isOnline && game.turn !== myColor) {
@@ -424,11 +557,19 @@
         const depth = parseInt(diffSelect.value);
         const best = game.getBestMove(depth);
         if (best) {
+            const bestPiece = game.board[best.fromRow][best.fromCol];
+            const bestCapture = !!game.board[best.toRow][best.toCol] || best.enPassant;
             game.makeMove(best);
             lastMove = { fromRow:best.fromRow, fromCol:best.fromCol, toRow:best.toRow, toCol:best.toCol };
-            renderBoard(); updateStatus();
+            const alg = game.toAlgebraic(best.fromRow, best.fromCol, best.toRow, best.toCol, best.promotion, bestPiece, bestCapture);
+            moveHistory.push({ alg, color:'b', fromRow:best.fromRow, fromCol:best.fromCol, toRow:best.toRow, toCol:best.toCol });
         }
         aiThinking = false;
+        if (aiSuggestEnabled && game.turn === 'w' && !game.gameOver) computeAiSuggestions();
+        else if (game.gameOver || !aiSuggestEnabled) aiSuggestions = [];
+        updateEvalBar();
+        updateMoveHistory();
+        renderBoard(); updateStatus();
     }
 
     function showPromotionDialog(color, cb) {
@@ -443,8 +584,138 @@
         overlay.appendChild(dlg); document.body.appendChild(overlay);
     }
 
+    function formatScore(score) {
+        const val = score / 100;
+        if (val > 0) return '+' + val.toFixed(2);
+        if (val < 0) return val.toFixed(2);
+        return '0.00';
+    }
+    function computeAiSuggestions() {
+        if (game.gameOver || game.turn !== 'w' || !aiSuggestEnabled) {
+            aiSuggestions = [];
+            document.getElementById('ai-hint').textContent = aiSuggestEnabled ? '' : 'اضغط 🧠 لتفعيل الاقتراحات الذكية';
+            return;
+        }
+        const depth = parseInt(diffSelect.value);
+        aiSuggestions = game.getTopMoves(depth, 2);
+        const hint = document.getElementById('ai-hint');
+        if (aiSuggestions.length === 0) {
+            hint.textContent = 'لا توجد تحركات متاحة';
+            return;
+        }
+        const lines = aiSuggestions.map((s, i) => {
+            const fr = s.move.fromRow, fc = s.move.fromCol, tr = s.move.toRow, tc = s.move.toCol;
+            const piece = game.board[fr][fc].toUpperCase();
+            const sym = {P:'',N:'حصان',B:'فيل',R:'قلعة',Q:'وزير',K:'ملك'}[piece] || '';
+            const from = files[fc] + (8-fr);
+            const to = files[tc] + (8-tr);
+            const best = i === 0 ? '⭐' : '✦';
+            return `${best} ${sym}${from}→${to} (${formatScore(s.score)})`;
+        });
+        hint.textContent = lines.join(' | ');
+
+        // Checkmate alert
+        const cm = game.getCheckmateMoves(depth);
+        const cmEl = document.getElementById('checkmate-alert');
+        if (cm.length) {
+            cmEl.textContent = '⚡ كش مات إجباري!';
+            cmEl.style.display = 'block';
+        } else {
+            cmEl.style.display = 'none';
+        }
+
+        // PV Line
+        pvLine = game.getPvLine(depth, 3);
+        updatePvLine();
+
+        // Threats
+        const opp = game.turn === 'w' ? 'b' : 'w';
+        threatenedSquares = game.getAttackedSquares(opp);
+        updatePlayBest();
+        renderBoard();
+    }
+    function updatePvLine() {
+        const el = document.getElementById('pv-line');
+        if (!pvLine.length || !aiSuggestEnabled || game.gameOver || game.turn !== 'w') { el.textContent = ''; return; }
+        const parts = pvLine.map((m, i) => {
+            const to = files[m.toCol] + (8-m.toRow);
+            const piece = game.board[m.fromRow]?.[m.fromCol];
+            const sym = i === 0 ? '' : (piece && piece.toUpperCase() === 'P' ? '' : (piece ? {N:'♘',B:'♗',R:'♖',Q:'♕',K:'♔'}[piece.toUpperCase()] : ''));
+            return (i % 2 === 0 ? '' : '... ') + sym + to;
+        });
+        el.textContent = '📋 ' + parts.join(' ');
+    }
+    function updateEvalBar() {
+        const el = document.getElementById('eval-container');
+        if (myColor !== 'w') { el.style.display = 'none'; return; }
+        el.style.display = 'flex';
+        const score = game.evaluate();
+        const total = 2000;
+        const clamped = Math.max(-total, Math.min(total, score));
+        const pct = 50 + (clamped / total) * 50;
+        const fillEl = document.getElementById('eval-bar');
+        const whiteFill = document.getElementById('eval-fill-white');
+        fillEl.style.height = (100 - pct) + '%';
+        whiteFill.style.height = pct + '%';
+        const topEl = document.getElementById('eval-score-top');
+        const botEl = document.getElementById('eval-score-bot');
+        const display = (score >= 0 ? '+' : '') + (score / 100).toFixed(2);
+        topEl.textContent = display;
+        botEl.textContent = score >= 0 ? '0.00' : display;
+    }
+    function updateMoveHistory() {
+        const el = document.getElementById('move-history');
+        let html = '';
+        for (let i = 0; i < moveHistory.length; i += 2) {
+            const num = Math.floor(i / 2) + 1;
+            const w = moveHistory[i];
+            const b = moveHistory[i + 1];
+            html += `<span class="move-num">${num}.</span><span class="move-w">${w ? w.alg : ''}</span>`;
+            if (b) html += `<span class="move-b"> ${b.alg}</span>`;
+            html += ' ';
+        }
+        el.innerHTML = html;
+        el.scrollTop = el.scrollHeight;
+    }
+    function updatePlayBest() {
+        const btn = document.getElementById('play-best');
+        btn.disabled = !(aiSuggestEnabled && !game.gameOver && game.turn === 'w' && aiSuggestions.length);
+    }
+    function playBestMove() {
+        if (!aiSuggestEnabled || game.gameOver || game.turn !== 'w' || !aiSuggestions.length) return;
+        const move = aiSuggestions[0].move;
+        if (game.board[move.fromRow][move.fromCol].toUpperCase()==='P' && (move.toRow===0||move.toRow===7)) {
+            showPromotionDialog(game._pieceColor(game.board[move.fromRow][move.fromCol]), promo => {
+                move.promotion = promo;
+                executeMove(move);
+            });
+        } else {
+            executeMove(move);
+        }
+    }
     function resetUI() {
         selectedSquare = null; legalMovesForSelected = []; lastMove = null; aiThinking = false;
+        aiSuggestions = []; moveHistory = []; pvLine = []; threatenedSquares = [];
+        document.getElementById('checkmate-alert').style.display = 'none';
+        document.getElementById('pv-line').textContent = '';
+        document.getElementById('ai-hint').textContent = 'اضغط 🧠 لتفعيل الاقتراحات الذكية';
+        if (myColor !== 'w') {
+            document.getElementById('eval-container').style.display = 'none';
+            document.getElementById('ai-coach-label').style.display = 'none';
+            document.getElementById('ai-hint').style.display = 'none';
+            document.getElementById('play-best').style.display = 'none';
+            document.getElementById('pv-line').style.display = 'none';
+            document.getElementById('checkmate-alert').style.display = 'none';
+        } else {
+            document.getElementById('eval-container').style.display = 'flex';
+            document.getElementById('ai-coach-label').style.display = '';
+            document.getElementById('ai-hint').style.display = '';
+            document.getElementById('play-best').style.display = '';
+            document.getElementById('pv-line').style.display = '';
+        }
+        updateEvalBar();
+        updateMoveHistory();
+        updatePlayBest();
         renderBoard(); updateStatus();
     }
 
@@ -485,10 +756,17 @@
     function handleNetworkMessage(msg) {
         if (msg.type === 'move') {
             const move = msg.move;
+            const netPiece = game.board[move.fromRow][move.fromCol];
+            const netCapture = !!game.board[move.toRow][move.toCol] || move.enPassant;
             game.makeMove(move);
             lastMove = { fromRow:move.fromRow, fromCol:move.fromCol, toRow:move.toRow, toCol:move.toCol };
             selectedSquare = null; legalMovesForSelected = [];
+            const alg = game.toAlgebraic(move.fromRow, move.fromCol, move.toRow, move.toCol, move.promotion, netPiece, netCapture);
+            moveHistory.push({ alg, color:game.turn==='w'?'b':'w', fromRow:move.fromRow, fromCol:move.fromCol, toRow:move.toRow, toCol:move.toCol });
+            updateEvalBar();
+            updateMoveHistory();
             renderBoard(); updateStatus();
+            if (aiSuggestEnabled && game.turn === 'w' && !game.gameOver) computeAiSuggestions();
         }
     }
 
@@ -515,6 +793,7 @@
         connStatusEl.textContent = 'لاعب ضد الكمبيوتر';
         playComputerBtn.classList.add('hidden');
         diffSelect.disabled = false;
+        if (aiSuggestEnabled) setTimeout(() => computeAiSuggestions(), 50);
     };
 
     newGameBtn.onclick = () => {
@@ -526,6 +805,7 @@
         game.reset();
         myColor = 'w';
         resetUI();
+        if (aiSuggestEnabled) setTimeout(() => computeAiSuggestions(), 50);
     };
 
     undoBtn.onclick = () => {
@@ -536,6 +816,21 @@
     flipBtn.onclick = () => { flipped = !flipped; renderBoard(); };
 
     diffSelect.onchange = () => { /* تغيير المستوى */ };
+
+    document.getElementById('ai-coach-toggle').onchange = function() {
+        if (myColor !== 'w') { this.checked = false; return; }
+        aiSuggestEnabled = this.checked;
+        if (aiSuggestEnabled && game.turn === 'w' && !game.gameOver) {
+            computeAiSuggestions();
+        } else {
+            aiSuggestions = [];
+            document.getElementById('ai-hint').textContent = aiSuggestEnabled ? 'جاري الحساب...' : 'اضغط 🧠 لتفعيل الاقتراحات الذكية';
+        }
+        updatePlayBest();
+        renderBoard();
+    };
+
+    document.getElementById('play-best').onclick = playBestMove;
 
     // بدء اللعبة الأولى
     game.reset(); resetUI();
