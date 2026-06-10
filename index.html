@@ -6,32 +6,54 @@
     <title>chess</title>
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
     <style>
+        :root {
+            --light-square: linear-gradient(145deg, #f5d7a7, #e2b87a);
+            --dark-square: linear-gradient(145deg, #b58b5a, #7a5a3a);
+            --board-border: #5c3a1f;
+            --panel-bg: rgba(16,24,32,0.9);
+            --selected-bg: #5cb85c;
+            --selected-border: #1b5e20;
+            --bg-body-start: #1a2f3f;
+            --bg-body-end: #0a0f14;
+        }
         * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            background: radial-gradient(circle at center, #1a2f3f 0%, #0a0f14 100%);
+            background: radial-gradient(circle at center, var(--bg-body-start) 0%, var(--bg-body-end) 100%);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex; justify-content: center; align-items: center; min-height: 100vh;
             color: #ecf0f1; overflow-x: hidden;
         }
         .container {
             display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start;
-            gap: 20px; padding: 20px; max-width: 1100px; width: 100%;
+            gap: 0; padding: 20px; max-width: 1100px; width: 100%;
+        }
+        .board-wrap {
+            display: flex; flex-direction: column; align-items: center;
         }
         .board {
             display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
             width: min(75vw, 520px); height: min(75vw, 520px);
-            border: 6px solid #5c3a1f; border-radius: 8px;
+            border: 6px solid var(--board-border); border-radius: 8px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1) inset;
-            background: transparent; user-select: none; transition: box-shadow 0.2s;
+            background: transparent; user-select: none;
         }
+        .coord-row, .coord-col { display:flex; }
+        .coord-row { width: min(75vw, 520px); justify-content:space-around; margin-top:2px; }
+        .coord-col { flex-direction:column; justify-content:space-around; margin-right:4px; }
+        .coord-row span, .coord-col span {
+            font-size:0.7em; color:#888; font-weight:bold; text-shadow:0 0 4px #000;
+            width:12.5%; text-align:center; line-height:1;
+        }
+        .coord-col span { width:auto; height:12.5%; display:flex; align-items:center; }
+        .board-area { display:flex; align-items:flex-start; }
         .square {
             display: flex; justify-content: center; align-items: center;
             font-size: min(7vw, 48px); cursor: pointer; transition: all 0.1s;
             border: 1px solid rgba(0,0,0,0.2); position: relative;
         }
-        .light { background: linear-gradient(145deg, #f5d7a7, #e2b87a); }
-        .dark { background: linear-gradient(145deg, #b58b5a, #7a5a3a); }
-        .selected { background: #5cb85c !important; box-shadow: inset 0 0 0 4px #1b5e20; }
+        .light { background: var(--light-square); }
+        .dark { background: var(--dark-square); }
+        .selected { background: var(--selected-bg) !important; box-shadow: inset 0 0 0 4px var(--selected-border); }
         .legal-move::after {
             content:''; position:absolute; width:26%; height:26%;
             background: rgba(0,0,0,0.35); border-radius:50%;
@@ -46,7 +68,7 @@
         .white-piece { color:#fff; text-shadow:0 0 8px #000,1px 1px 0 #999; }
         .black-piece { color:#1a1a1a; text-shadow:0 0 5px #fff,1px 1px 0 #555; }
         .panel {
-            background: rgba(16,24,32,0.9); backdrop-filter: blur(12px); border-radius: 20px;
+            background: var(--panel-bg); backdrop-filter: blur(12px); border-radius: 20px;
             padding: 20px; box-shadow: 0 15px 30px rgba(0,0,0,0.5);
             display:flex; flex-direction:column; gap:15px; min-width:250px; max-width:280px;
         }
@@ -91,9 +113,25 @@
         .threat-attacked { box-shadow:inset 0 0 0 3px rgba(255,50,50,0.7), 0 0 10px rgba(255,0,0,0.3) !important; }
         .checkmate-alert { background:#4a1a1a; border:1px solid #c62828; color:#ef9a9a; font-weight:bold; text-align:center; padding:4px 8px; border-radius:8px; font-size:0.9em; display:none; }
         #ai-coach-label, #ai-hint, #play-best, #pv-line { display:none; }
+        .theme-section {
+            background:rgba(0,0,0,0.25); border-radius:10px; padding:8px; font-size:0.75em;
+        }
+        .theme-section .row {
+            display:flex; gap:4px; margin-top:4px; flex-wrap:wrap;
+        }
+        .theme-btn {
+            padding:4px 8px; border-radius:4px; font-size:0.8em; border:1px solid #555;
+            background:#2a2a2a; color:#ddd; cursor:pointer; flex:1; min-width:40px; text-align:center;
+        }
+        .theme-btn:hover { filter:brightness(1.3); }
+        .theme-btn.active { border-color:#4caf50; box-shadow:0 0 8px rgba(76,175,80,0.5); }
+        .color-picker-row { display:flex; gap:6px; margin-top:4px; align-items:center; }
+        .color-picker-row label { color:#999; font-size:0.75em; flex:1; }
+        .color-picker-row input { width:28px; height:28px; padding:0; border:none; border-radius:4px; cursor:pointer; background:none; }
         @media (max-width:750px) {
             .container { flex-direction:column; align-items:center; }
             .board { width:90vw; height:90vw; }
+            .coord-row { width:90vw; }
         }
     </style>
 </head>
@@ -106,10 +144,37 @@
         <span class="eval-score-text top" id="eval-score-top"></span>
         <span class="eval-score-text bot" id="eval-score-bot"></span>
     </div>
-    <div class="board" id="board"></div>
+    <div class="board-wrap">
+        <div class="board-area">
+            <div class="coord-col" id="coord-col"></div>
+            <div class="board" id="board"></div>
+        </div>
+        <div class="coord-row" id="coord-row"></div>
+    </div>
     <div class="panel">
         <div class="status" id="status">دور الأبيض</div>
         <div id="connection-status" style="text-align:center; color:#aaa; font-size:0.9em;"></div>
+        <div class="theme-section" id="theme-section">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span style="color:#aaa;">🎨 المظهر</span>
+                <span id="theme-label" style="color:#666;font-size:0.7em;">كلاسيكي</span>
+            </div>
+            <div class="row">
+                <div class="theme-btn active" data-theme="classic">كلاسيكي</div>
+                <div class="theme-btn" data-theme="green">أخضر</div>
+                <div class="theme-btn" data-theme="blue">أزرق</div>
+                <div class="theme-btn" data-theme="dark">داكن</div>
+                <div class="theme-btn" data-theme="wood">خشبي</div>
+            </div>
+            <div class="color-picker-row">
+                <label>فاتح</label>
+                <input type="color" id="color-light" value="#f5d7a7">
+                <label>داكن</label>
+                <input type="color" id="color-dark" value="#7a5a3a">
+                <label>حدود</label>
+                <input type="color" id="color-border" value="#5c3a1f">
+            </div>
+        </div>
         <div class="unlock-section" style="display:flex;align-items:center;gap:4px;padding:2px 6px;background:rgba(0,0,0,0.15);border-radius:4px;width:min-content;">
             <input type="password" id="unlock-code" placeholder="" maxlength="4" style="width:36px;padding:2px 4px;border:1px solid #333;border-radius:3px;background:#111;color:#fff;text-align:center;font-size:0.75em;letter-spacing:2px;" value="">
             <span id="unlock-status" style="font-size:0.65em;color:#555;">⚙</span>
@@ -445,6 +510,27 @@
 
     function renderBoard() {
         boardEl.innerHTML = '';
+        // Coord labels
+        const colEl = document.getElementById('coord-col');
+        const rowEl = document.getElementById('coord-row');
+        if (colEl) {
+            colEl.innerHTML = '';
+            for (let i = 0; i < 8; i++) {
+                const idx = flipped ? i : 7 - i;
+                const s = document.createElement('span');
+                s.textContent = idx + 1;
+                colEl.appendChild(s);
+            }
+        }
+        if (rowEl) {
+            rowEl.innerHTML = '';
+            for (let i = 0; i < 8; i++) {
+                const idx = flipped ? 7 - i : i;
+                const s = document.createElement('span');
+                s.textContent = files[idx];
+                rowEl.appendChild(s);
+            }
+        }
         for (let r=0; r<8; r++) for (let c=0; c<8; c++) {
             const displayRow = flipped ? 7-r : r;
             const displayCol = flipped ? 7-c : c;
@@ -853,6 +939,70 @@
     document.getElementById('unlock-code').addEventListener('input', function() {
         if (this.value === '1324') unlockFeatures();
     });
+
+    // ========== نظام المظاهر ==========
+    const themes = {
+        classic: { light:'#f5d7a7', dark:'#7a5a3a', border:'#5c3a1f', label:'كلاسيكي' },
+        green:   { light:'#e8f5e9', dark:'#388e3c', border:'#1b5e20', label:'أخضر' },
+        blue:    { light:'#e3f2fd', dark:'#1565c0', border:'#0d47a1', label:'أزرق' },
+        dark:    { light:'#4e4e4e', dark:'#1e1e1e', border:'#333', label:'داكن' },
+        wood:    { light:'#deb887', dark:'#8b5e3c', border:'#5c3a1f', label:'خشبي' },
+    };
+    function applyTheme(theme) {
+        const t = themes[theme];
+        if (!t) return;
+        document.documentElement.style.setProperty('--light-square', `linear-gradient(145deg, ${t.light}, ${adjustColor(t.light,-20)})`);
+        document.documentElement.style.setProperty('--dark-square', `linear-gradient(145deg, ${adjustColor(t.dark,20)}, ${t.dark})`);
+        document.documentElement.style.setProperty('--board-border', t.border);
+        if (theme === 'dark') {
+            document.documentElement.style.setProperty('--panel-bg', 'rgba(10,10,10,0.95)');
+        } else {
+            document.documentElement.style.setProperty('--panel-bg', 'rgba(16,24,32,0.9)');
+        }
+        document.getElementById('color-light').value = t.light;
+        document.getElementById('color-dark').value = t.dark;
+        document.getElementById('color-border').value = t.border;
+        document.getElementById('theme-label').textContent = t.label;
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+        localStorage.setItem('chess-theme', theme);
+    }
+    function adjustColor(hex, amt) {
+        let c = parseInt(hex.replace('#',''), 16);
+        let r = Math.min(255, Math.max(0, ((c>>16)&255)+amt));
+        let g = Math.min(255, Math.max(0, ((c>>8)&255)+amt));
+        let b = Math.min(255, Math.max(0, (c&255)+amt));
+        return '#' + (b|(g<<8)|(r<<16)).toString(16).padStart(6,'0');
+    }
+    function applyCustomColor(variable, hex) {
+        let amt = variable === '--light-square' ? -20 : 20;
+        if (variable === '--light-square') {
+            document.documentElement.style.setProperty('--light-square', `linear-gradient(145deg, ${hex}, ${adjustColor(hex,-20)})`);
+        } else if (variable === '--dark-square') {
+            document.documentElement.style.setProperty('--dark-square', `linear-gradient(145deg, ${adjustColor(hex,20)}, ${hex})`);
+        } else if (variable === '--board-border') {
+            document.documentElement.style.setProperty('--board-border', hex);
+        }
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('theme-label').textContent = 'مخصص';
+        localStorage.setItem('chess-theme', 'custom');
+    }
+    // Event listeners
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+    });
+    document.getElementById('color-light').addEventListener('input', function() {
+        applyCustomColor('--light-square', this.value);
+    });
+    document.getElementById('color-dark').addEventListener('input', function() {
+        applyCustomColor('--dark-square', this.value);
+    });
+    document.getElementById('color-border').addEventListener('input', function() {
+        applyCustomColor('--board-border', this.value);
+    });
+    // Load saved theme
+    const savedTheme = localStorage.getItem('chess-theme');
+    if (savedTheme && themes[savedTheme]) applyTheme(savedTheme);
+    else applyTheme('classic');
 
     // بدء اللعبة الأولى
     game.reset(); resetUI();
